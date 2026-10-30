@@ -119,6 +119,7 @@ async function main(argv = process.argv.slice(2)) {
   const userSponsors = path.join(configDir, 'sponsors.json');
   const configuration = {
     model: process.env.OSIN_MODEL || process.env.OPENAI_MODEL || process.env.GROQ_MODEL || 'gpt-4o-mini',
+    codexModel: process.env.OSIN_CODEX_MODEL || 'gpt-6-luna',
     apiKey: process.env.OSIN_API_KEY || process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY || '',
     baseUrl: process.env.OSIN_BASE_URL || process.env.OPENAI_BASE_URL || process.env.GROQ_BASE_URL || 'https://api.openai.com/v1',
     supportUrl: process.env.OSIN_SUPPORT_URL || '',
