@@ -23,3 +23,9 @@
 .hero-emblem{width:min(39vw,590px)}
 @media(max-width:900px){.hero-emblem{width:min(42vw,470px)}}
 @media(max-width:640px){.hero-emblem{width:250px}}
+
+/* Use the available viewport instead of a narrow centered content column. */
+:root{--gutter:clamp(22px,3.5vw,56px)}
+.hero{max-width:none}
+.section-wrap,.site-footer{width:100%;max-width:none;padding-inline:var(--gutter)}
+@media(max-width:640px){:root{--gutter:22px}}
