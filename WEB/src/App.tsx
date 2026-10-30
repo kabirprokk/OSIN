@@ -60,7 +60,7 @@ function Hero() {
       <div className="hero-emblem" aria-hidden="true">
         <div className="emblem-orbit emblem-orbit--one" /><div className="emblem-orbit emblem-orbit--two" />
         <span className="emblem-cross emblem-cross--h" /><span className="emblem-cross emblem-cross--v" />
-        <img src="/osin-logo-source.png" width="420" height="420" alt="" fetchPriority="high" />
+        <img src="/osin-emblem-transparent.png" width="420" height="420" alt="" fetchPriority="high" />
         <span className="emblem-caption">OSIN / IN THE TERMINAL</span>
       </div>
       <div className="hero-index"><span>INDEPENDENT THINKING</span><span>01—04</span></div>
