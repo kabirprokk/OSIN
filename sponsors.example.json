@@ -1,0 +1,12 @@
+[
+  {
+    "id": "replace-with-campaign-id",
+    "sponsor": "Sponsor name",
+    "title": "Short, factual headline",
+    "description": "One useful sentence about the sponsor's product.",
+    "url": "https://sponsor.example",
+    "active": false,
+    "startsAt": "2026-01-01T00:00:00Z",
+    "endsAt": "2026-12-31T23:59:59Z"
+  }
+]
