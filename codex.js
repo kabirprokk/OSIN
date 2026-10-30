@@ -1,6 +1,7 @@
 'use strict';
 
 const { spawn } = require('node:child_process');
+const { version } = require('./package.json');
 
 function isUnsupportedModelError(status, message) {
   return (status === 400 || status === 404) && /model[_ ]not[_ ]found|model.{0,30}(not found|does not exist|unsupported|unavailable)|unknown model/i.test(String(message));
@@ -95,7 +96,7 @@ function listCodexModels({ spawnProcess = spawn, timeout = 15_000 } = {}) {
     });
     child.once('error', error => finish(new Error(`Could not start Codex CLI: ${error.message}`)));
     child.once('close', code => { if (!settled) finish(new Error(`Codex app-server exited (${code}) before returning models.`)); });
-    send({ id: 1, method: 'initialize', params: { clientInfo: { name: 'osin', title: 'OSIN', version: '1.0.0' } } });
+    send({ id: 1, method: 'initialize', params: { clientInfo: { name: 'osin', title: 'OSIN', version } } });
   });
 }
 

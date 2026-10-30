@@ -1,6 +1,6 @@
 {
   "name": "@kabirprokk/osin-cli",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A terminal-based AI coding assistant with a clickable workspace",
   "main": "osin.js",
   "repository": {
