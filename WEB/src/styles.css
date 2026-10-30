@@ -29,3 +29,8 @@
 .hero{max-width:none}
 .section-wrap,.site-footer{width:100%;max-width:none;padding-inline:var(--gutter)}
 @media(max-width:640px){:root{--gutter:22px}}
+
+/* Keep the hero as the entire opening viewport; the rest follows below it. */
+.hero{height:calc(100svh - 82px);min-height:0}
+@media(max-width:640px){.hero{height:calc(100svh - 68px)}}
+@media(max-height:700px) and (min-width:641px){.hero{padding-top:42px;padding-bottom:60px}.hero h1{font-size:clamp(48px,5.6vw,72px);margin:18px 0 15px}.hero-intro{font-size:13px}.hero-actions{margin-top:20px}.hero-note{margin-top:15px}}
