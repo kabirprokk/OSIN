@@ -45,8 +45,8 @@ export default function ScrollProgress() {
       <svg viewBox="0 0 1440 56" preserveAspectRatio="none">
         <defs>
           <linearGradient id="scroll-wave-gradient" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#f5a623" />
-            <stop offset="100%" stopColor="#a78bfa" />
+            <stop offset="0%" stopColor="#b89aff" />
+            <stop offset="100%" stopColor="#80d9e8" />
           </linearGradient>
         </defs>
         {arcs.map((radius) => (
