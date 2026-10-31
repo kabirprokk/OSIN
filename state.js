@@ -6,6 +6,11 @@ function createSession() {
   return {
     title: 'New chat',
     attachments: [],
+    plan: null,
+    changedFiles: [],
+    fileDiffs: {},
+    outputs: [],
+    activity: [],
     usage: { requests: 0, promptTokens: 0, completionTokens: 0, totalTokens: 0 },
     messages: [{ role: 'system', content: SYSTEM_PROMPT }],
   };

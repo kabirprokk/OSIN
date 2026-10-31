@@ -34,10 +34,12 @@ test('reads bounded UTF-8 text files without accepting binary or oversized files
   fs.writeFileSync(path.join(directory, 'binary.dat'), Buffer.from([0, 1, 2, 3]));
   fs.writeFileSync(path.join(directory, 'big.txt'), 'x'.repeat(20));
   fs.writeFileSync(path.join(directory, '.env'), 'TOKEN=do-not-share');
+  fs.writeFileSync(path.join(directory, '.npmrc'), '//registry.npmjs.org/:_authToken=do-not-share');
   assert.equal(readTextAttachment('notes.md', { cwd: directory }).content, '# Notes\nHello');
   assert.throws(() => readTextAttachment('binary.dat', { cwd: directory }), /binary/i);
   assert.throws(() => readTextAttachment('big.txt', { cwd: directory, maxBytes: 10 }), /size/i);
   assert.throws(() => readTextAttachment('.env', { cwd: directory }), /secrets/i);
+  assert.throws(() => readTextAttachment('.npmrc', { cwd: directory }), /secrets/i);
 });
 
 test('formats attachment content as escaped JSON data alongside the user request', () => {

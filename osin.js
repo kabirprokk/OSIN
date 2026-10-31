@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { startTui } = require('./tui');
 const { getConfigDirectory, loadEnvFile } = require('./config');
+const { selectWorkspace, configureProvider, createVisualSetupIO } = require('./setup');
 
 const ESC = '\x1b[';
 const dot = String.fromCharCode(0x25CF);
@@ -48,7 +49,7 @@ function initializeConfig(configDir = getConfigDirectory()) {
     fs.copyFileSync(sampleCampaigns, userCampaigns, fs.constants.COPYFILE_EXCL);
   }
   console.log(`Created OSIN config: ${envFile}`);
-  console.log('Edit the file and add your provider API key, then run `osin`.');
+  console.log('Run `osin` to connect a provider with the guided setup. No manual config editing is needed.');
 }
 
 function showHelp() {
@@ -64,7 +65,7 @@ Configuration:
   Windows: %APPDATA%\\OSIN\\.env
   macOS/Linux: $XDG_CONFIG_HOME/osin/.env (default: ~/.config/osin/.env)
 
-Run osin init, configure your provider, and start osin. OSIN checks npm for
+Run osin and follow the guided provider and workspace setup. OSIN checks npm for
 new releases in the background; type /update inside the workspace to install
 an available release. Set OSIN_DISABLE_UPDATE_CHECK=1 to opt out of checks.
 `);
@@ -116,17 +117,35 @@ async function main(argv = process.argv.slice(2)) {
   }
 
   const configDir = loadConfigurationEnvironment();
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    console.error('OSIN needs an interactive terminal. Open Windows Terminal or PowerShell and run `osin` again.');
+    process.exitCode = 1;
+    return;
+  }
+  await showLogo();
+  const configuredApiKey = process.env.OSIN_API_KEY || process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY;
+  if (!configuredApiKey && process.env.OSIN_BACKEND !== 'codex') {
+    const setupIO = createVisualSetupIO();
+    try { await configureProvider({ configDirectory: configDir, io: setupIO, log: message => setupIO.log(message) }); }
+    catch (error) { console.error(`Provider setup failed: ${error.message}`); process.exitCode = 1; return; }
+    loadEnvFile(path.join(configDir, '.env'));
+  }
+  let workspace;
+  try { workspace = await selectWorkspace({ io: createVisualSetupIO() }); }
+  catch (error) { console.error(`Workspace selection failed: ${error.message}`); process.exitCode = 1; return; }
   const userSponsors = path.join(configDir, 'sponsors.json');
   const configuration = {
     model: process.env.OSIN_MODEL || process.env.OPENAI_MODEL || process.env.GROQ_MODEL || 'gpt-4o-mini',
-    codexModel: process.env.OSIN_CODEX_MODEL || 'gpt-6-luna',
+    codexModel: process.env.OSIN_CODEX_MODEL || '',
     apiKey: process.env.OSIN_API_KEY || process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY || '',
     baseUrl: process.env.OSIN_BASE_URL || process.env.OPENAI_BASE_URL || process.env.GROQ_BASE_URL || 'https://api.openai.com/v1',
     supportUrl: process.env.OSIN_SUPPORT_URL || '',
+    backend: process.env.OSIN_BACKEND || (process.env.OSIN_API_KEY || process.env.OPENAI_API_KEY || process.env.GROQ_API_KEY ? 'api' : 'codex'),
+    workspace,
+    configDir,
     sponsorsFile: fs.existsSync(userSponsors) ? userSponsors : path.join(__dirname, 'sponsors.json'),
     metricsFile: path.join(configDir, 'metrics.json'),
   };
-  await showLogo();
   startTui(configuration);
 }
 

@@ -21,7 +21,9 @@ function loadEnvFile(file, env = process.env) {
     if (!entry || env[entry[1]]) continue;
     let value = entry[2];
     if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      const quote = value[0];
       value = value.slice(1, -1);
+      if (quote === '"') value = value.replace(/\\([\\"])/g, '$1');
     }
     env[entry[1]] = value;
   }

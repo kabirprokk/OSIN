@@ -1,7 +1,7 @@
 {
   "name": "@kabirprokk/osin-cli",
-  "version": "1.0.6",
-  "description": "A terminal-based AI coding assistant with a clickable workspace",
+  "version": "1.2.0",
+  "description": "A terminal coding agent with plans, project tools, and session controls",
   "main": "osin.js",
   "repository": {
     "type": "git",
@@ -17,6 +17,12 @@
   "files": [
     "osin.js",
     "codex.js",
+    "agent.js",
+    "agent-tools.js",
+    "diff.js",
+    "session-store.js",
+    "security.js",
+    "setup.js",
     "tui.js",
     "composer.js",
     "commands.js",
@@ -40,5 +46,8 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "@openai/codex": "^0.166.0"
   }
 }

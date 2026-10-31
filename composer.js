@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const { TextDecoder } = require('util');
+const { isSensitivePath } = require('./security');
 
 const LARGE_PASTE_CHARS = 12_000;
 const MAX_PASTE_BYTES = 128 * 1024;
@@ -35,7 +36,7 @@ function readTextAttachment(filename, options = {}) {
   const maxBytes = options.maxBytes || DEFAULT_MAX_FILE_BYTES;
   const file = path.resolve(cwd, filename.trim().replace(/^['"]|['"]$/g, ''));
   const base = path.basename(file);
-  if (/^\.env(?:\.|$)/i.test(base) || /^(?:id_rsa|id_ed25519|credentials(?:\.|$)|secrets?\.?)$/i.test(base) || /\.(?:pem|key)$/i.test(base)) {
+  if (isSensitivePath(base)) {
     throw new Error('This filename commonly contains secrets. Remove sensitive values before attaching it.');
   }
   let stat;

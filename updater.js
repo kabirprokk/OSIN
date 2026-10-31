@@ -1,6 +1,7 @@
 'use strict';
 
 const { spawn } = require('child_process');
+const { sanitizeChildEnvironment } = require('./security');
 const packageName = require('./package.json').name;
 const registryUrl = `https://registry.npmjs.org/${packageName.replace('/', '%2f')}/latest`;
 
@@ -46,6 +47,7 @@ function runNpmInstall(version) {
     const child = spawn(command, ['install', '--global', `${packageName}@${version}`], {
       shell: process.platform === 'win32',
       windowsHide: true,
+      env: sanitizeChildEnvironment(),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let stderr = '';

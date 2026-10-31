@@ -38,3 +38,9 @@ test('osin init creates per-user config and does not overwrite it', () => {
     assert.equal(fs.readFileSync(configFile, 'utf8'), 'OSIN_API_KEY=keep-me\n');
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 });
+
+test('interactive workspace launch fails clearly instead of waiting for input in a pipe', () => {
+  const result = spawnSync(process.execPath, [cli], { encoding: 'utf8', input: '', env: { ...process.env, OSIN_DISABLE_UPDATE_CHECK: '1' } });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /interactive terminal/i);
+});
