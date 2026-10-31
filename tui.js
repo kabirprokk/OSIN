@@ -9,7 +9,7 @@ const { getConfigDirectory } = require('./config');
 const { listModels } = require('./providers');
 const { runAgent, testAgentModel } = require('./agent');
 const { loadProjectSessions, saveProjectSessions } = require('./session-store');
-const { gitChanges, readFile: readProjectFile, isSecretPath, resolveProjectPath, snapshotWorkspace, changedSinceSnapshot } = require('./agent-tools');
+const { gitChanges, readFile: readProjectFile, isSecretPath, isAgentInternalPath, resolveProjectPath, snapshotWorkspace, changedSinceSnapshot } = require('./agent-tools');
 const { createUnifiedDiff } = require('./diff');
 const { configureProvider, writeUserConfig, createVisualSetupIO } = require('./setup');
 const { checkForUpdate, installUpdate } = require('./updater');
@@ -178,7 +178,6 @@ function startTui({ model, apiKey, baseUrl, sponsorsFile, metricsFile, openUrl, 
         const label = (index === state.active ? '› ' : '  ') + (session.title || 'New chat');
         put(2, 10 + i, paint(fit(label, sideW - 2), index === state.active ? colors.text : colors.muted));
       });
-      put(2, h - 1, paint('Esc  exit', colors.muted));
     }
 
     // Chat workspace.
@@ -328,7 +327,6 @@ function startTui({ model, apiKey, baseUrl, sponsorsFile, metricsFile, openUrl, 
       put(chatX, inputY + 1 + i, promptPrefix + fit(caret, availableInput) + (i === 0 ? paint('  ↵', colors.muted) : ''));
     }
     put(chatX, inputY + 4, paint(EL.repeat(Math.max(1, composerWidth)), colors.border));
-    if (h > inputY + 5) put(1, inputY + 5, paint(' Ctrl+N new · Ctrl+S settings · Ctrl+O output · Ctrl+L redraw · Enter send · Esc stop/back', colors.muted));
     const beforeCaret = state.text.slice(0, state.caret).split('\n');
     const caretLine = beforeCaret.length - 1;
     const shownCaretLine = Math.max(firstVisibleLine, Math.min(caretLine, firstVisibleLine + 2));
@@ -369,24 +367,38 @@ function startTui({ model, apiKey, baseUrl, sponsorsFile, metricsFile, openUrl, 
 
   async function showDiff() {
     const session = activeSession();
-    const files = [...new Set(session.changedFiles || [])].filter(file => !isSecretPath(file));
+    const files = [...new Set(session.changedFiles || [])].filter(file => !isSecretPath(file) && !isAgentInternalPath(file));
     if (!files.length) {
       state.diffText = 'No changed project files to show.';
       state.view = 'diff';
       draw();
       return;
     }
-    const runGit = args => new Promise(resolve => execFile('git', args, { cwd: workspace, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }, (error, stdout, stderr) => resolve({ error, stdout, stderr })));
-    let { error, stdout } = await runGit(['diff', '--no-ext-diff', '--no-color', 'HEAD', '--', ...files]);
-      if (error) {
-      const unstaged = await runGit(['diff', '--no-ext-diff', '--no-color', '--', ...files]);
-      const staged = await runGit(['diff', '--cached', '--no-ext-diff', '--no-color', '--', ...files]);
-      stdout = [unstaged.stdout, staged.stdout].filter(Boolean).join('\n');
+    const runGit = args => new Promise(resolve => {
+      try {
+        execFile('git', args, { cwd: workspace, windowsHide: true, maxBuffer: 2 * 1024 * 1024 }, (error, stdout, stderr) => resolve({ error, stdout, stderr }));
+      } catch (error) { resolve({ error, stdout: '', stderr: '' }); }
+    });
+    let text = '';
+    let error = null;
+    // Keep argument vectors bounded: large projects can accumulate thousands
+    // of changed paths, exceeding Windows' CreateProcess command-line limit.
+    for (let start = 0; start < files.length; start += 40) {
+      const batch = files.slice(start, start + 40);
+      const base = ['--no-ext-diff', '--no-color'];
+      let result = await runGit(['diff', ...base, 'HEAD', '--', ...batch]);
+      if (result.error) {
+        error ||= result.error;
+        const unstaged = await runGit(['diff', ...base, '--', ...batch]);
+        const staged = await runGit(['diff', '--cached', ...base, '--', ...batch]);
+        result = { stdout: [unstaged.stdout, staged.stdout].filter(Boolean).join('\n') };
+      }
+      if (result.stdout) text += `${text ? '\n' : ''}${result.stdout}`;
     }
-    let text = stdout || '';
     if (!text && Object.keys(session.fileDiffs || {}).length) text = Object.values(session.fileDiffs).join('\n\n');
-    const untracked = await runGit(['ls-files', '--others', '--exclude-standard', '--', ...files]);
-    for (const file of (untracked.stdout || '').split(/\r?\n/).filter(Boolean)) {
+    const untrackedResult = await runGit(['ls-files', '--others', '--exclude-standard', '-z']);
+    const changedSet = new Set(files);
+    for (const file of (untrackedResult.stdout || '').split('\0').filter(file => changedSet.has(file))) {
       try {
         const content = readProjectFile(workspace, file);
         text += `${text ? '\n\n' : ''}--- /dev/null\n+++ b/${file}\n${content.split(/\r?\n/).map(line => `+${line}`).join('\n')}`;
@@ -465,7 +477,7 @@ function startTui({ model, apiKey, baseUrl, sponsorsFile, metricsFile, openUrl, 
     if (text === '/new') { newChat(); return; }
     if (text === '/settings') { state.view = 'settings'; draw(); return; }
     if (text === '/help') {
-      addNotice('Commands: /new, /clear, /undo, /attach <path>, /files, /plan, /diff, /output, /detach N, /copy, /usage, /model, /models, /update, /settings, /setup, /signin, /api, /test-model, /support, /help, /exit. Ctrl+N new chat; Ctrl+O command output.');
+      addNotice('Commands: /new, /clear, /undo, /attach <path>, /files, /plan, /diff, /output, /detach N, /copy, /usage, /model, /models, /update, /settings, /setup, /signin, /api, /test-model, /support, /help, /exit. Shortcuts: Ctrl+N new chat · Ctrl+S settings · Ctrl+O output · Ctrl+L redraw · Enter send · Esc stop or exit.');
       draw(); return;
     }
     if (text === '/plan') {
@@ -577,6 +589,8 @@ function startTui({ model, apiKey, baseUrl, sponsorsFile, metricsFile, openUrl, 
     state.busy = true;
     draw();
     const workspaceSnapshot = snapshotWorkspace(workspace);
+    const gitBeforeTurn = gitChanges(workspace);
+    const changedThisTurn = new Set();
     if (state.backend === 'api' && !apiKey) {
       session.messages.push({ role: 'error', content: 'No API key configured. Type /setup or restart OSIN to connect a provider.' });
       state.busy = false; draw(); return;
@@ -599,7 +613,8 @@ function startTui({ model, apiKey, baseUrl, sponsorsFile, metricsFile, openUrl, 
               else if (event.type === 'tool_start') recordActivity(`OSIN ${event.name.replaceAll('_', ' ')}${event.args?.path ? `: ${event.args.path}` : ''}`);
               else if (event.type === 'plan' || event.type === 'plan_update') { session.plan = event.plan; persistSessions(); }
               else if (event.type === 'file_changed') {
-                if (!session.changedFiles.includes(event.path)) session.changedFiles.push(event.path);
+                if (event.path && !isSecretPath(event.path) && !isAgentInternalPath(event.path)) changedThisTurn.add(event.path);
+                if (event.path && !isAgentInternalPath(event.path) && !session.changedFiles.includes(event.path)) session.changedFiles.push(event.path);
                 if (event.diff) session.fileDiffs[event.path] = event.diff;
                 persistSessions();
               }
@@ -609,7 +624,10 @@ function startTui({ model, apiKey, baseUrl, sponsorsFile, metricsFile, openUrl, 
               draw();
             },
           });
-          for (const changed of gitChanges(workspace)) if (!isSecretPath(changed) && !beforeChanges.has(changed) && !session.changedFiles.includes(changed)) session.changedFiles.push(changed);
+          for (const changed of gitChanges(workspace)) if (!isSecretPath(changed) && !beforeChanges.has(changed)) {
+            changedThisTurn.add(changed);
+            if (!session.changedFiles.includes(changed)) session.changedFiles.push(changed);
+          }
           session.usage.requests++;
           session.messages.push({ role: 'assistant', content: result.answer || '(no response)' });
         } catch (error) {
@@ -634,7 +652,8 @@ function startTui({ model, apiKey, baseUrl, sponsorsFile, metricsFile, openUrl, 
             else if (event.type === 'plan') { session.plan = event.plan; persistSessions(); }
             else if (event.type === 'plan_update') { session.plan = event.plan; persistSessions(); }
             else if (event.type === 'file_changed') {
-              if (!session.changedFiles.includes(event.path)) session.changedFiles.push(event.path);
+              if (event.path && !isSecretPath(event.path) && !isAgentInternalPath(event.path)) changedThisTurn.add(event.path);
+              if (event.path && !isAgentInternalPath(event.path) && !session.changedFiles.includes(event.path)) session.changedFiles.push(event.path);
               if (event.diff) session.fileDiffs[event.path] = event.diff;
               persistSessions();
             }
@@ -657,7 +676,8 @@ function startTui({ model, apiKey, baseUrl, sponsorsFile, metricsFile, openUrl, 
     }
     const afterSnapshot = snapshotWorkspace(workspace);
     for (const file of changedSinceSnapshot(workspaceSnapshot, afterSnapshot)) {
-      if (isSecretPath(file)) continue;
+      if (isSecretPath(file) || isAgentInternalPath(file)) continue;
+      changedThisTurn.add(file);
       if (!session.changedFiles.includes(file)) session.changedFiles.push(file);
       const previous = workspaceSnapshot.get(file);
       const current = afterSnapshot.get(file);
@@ -665,8 +685,12 @@ function startTui({ model, apiKey, baseUrl, sponsorsFile, metricsFile, openUrl, 
         session.fileDiffs[file] = createUnifiedDiff(file, previous?.content || '', current?.content || '');
       }
     }
-    for (const file of gitChanges(workspace)) if (!isSecretPath(file) && !session.changedFiles.includes(file)) session.changedFiles.push(file);
-    if (session.changedFiles.length) await showDiff();
+    for (const file of gitChanges(workspace)) {
+      if (isSecretPath(file) || isAgentInternalPath(file)) continue;
+      if (!gitBeforeTurn.has(file)) changedThisTurn.add(file);
+      if (!session.changedFiles.includes(file)) session.changedFiles.push(file);
+    }
+    if (changedThisTurn.size) await showDiff();
     state.taskController = null;
     state.streamingText = '';
     persistSessions();

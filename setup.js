@@ -9,6 +9,7 @@ const { fitText } = require('./terminal');
 
 const PROVIDERS = [
   { name: 'OpenAI', url: 'https://api.openai.com/v1' },
+  { name: 'Anthropic', url: 'https://api.anthropic.com/v1' },
   { name: 'OpenRouter', url: 'https://openrouter.ai/api/v1' },
   { name: 'Groq', url: 'https://api.groq.com/openai/v1' },
   { name: 'Together AI', url: 'https://api.together.xyz/v1' },

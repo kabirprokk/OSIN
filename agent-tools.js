@@ -7,7 +7,7 @@ const { execFileSync } = require('node:child_process');
 const { createUnifiedDiff } = require('./diff');
 const { isSensitivePath, sanitizeChildEnvironment } = require('./security');
 
-const IGNORED = new Set(['.git', 'node_modules', '.next', 'dist', 'build', 'coverage', 'vendor']);
+const IGNORED = new Set(['.git', '.codex', 'node_modules', '.next', 'dist', 'build', 'coverage', 'vendor']);
 const MAX_FILE_BYTES = 300_000;
 const MAX_OUTPUT_CHARS = 40_000;
 
@@ -41,6 +41,11 @@ function resolveProjectPath(root, relativePath = '.') {
 
 function isSecretPath(relativePath) {
   return isSensitivePath(relativePath);
+}
+
+function isAgentInternalPath(relativePath) {
+  const normalized = String(relativePath || '').replaceAll('\\', '/').replace(/^\.\//, '').toLowerCase();
+  return normalized === '.codex' || normalized.startsWith('.codex/');
 }
 
 function walkFiles(root, relativePath = '.') {
@@ -199,7 +204,7 @@ function commandEscapesWorkspace(command) {
 function gitChanges(root) {
   try {
     const output = execFileSync('git', ['status', '--short', '--untracked-files=all'], { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true });
-    return new Set(output.split(/\r?\n/).filter(Boolean).map(line => line.slice(3).replace(/^"|"$/g, '')));
+    return new Set(output.split(/\r?\n/).filter(Boolean).map(line => line.slice(3).replace(/^"|"$/g, '')).filter(file => !isAgentInternalPath(file)));
   } catch { return new Set(); }
 }
 
@@ -231,4 +236,4 @@ function changedSinceSnapshot(before, after) {
   return changed;
 }
 
-module.exports = { TOOL_DEFINITIONS, MAX_FILE_BYTES, resolveProjectPath, isSecretPath, commandTouchesSecretPath, commandEscapesWorkspace, walkFiles, readFile, searchFiles, runCommand, gitChanges, snapshotWorkspace, changedSinceSnapshot, executeTool };
+module.exports = { TOOL_DEFINITIONS, MAX_FILE_BYTES, IGNORED, resolveProjectPath, isSecretPath, isAgentInternalPath, commandTouchesSecretPath, commandEscapesWorkspace, walkFiles, readFile, searchFiles, runCommand, gitChanges, snapshotWorkspace, changedSinceSnapshot, executeTool };

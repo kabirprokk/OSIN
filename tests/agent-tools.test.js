@@ -6,7 +6,7 @@ const { EventEmitter } = require('node:events');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { resolveProjectPath, walkFiles, readFile, searchFiles, executeTool, commandTouchesSecretPath, commandEscapesWorkspace, snapshotWorkspace, changedSinceSnapshot, runCommand } = require('../agent-tools');
+const { resolveProjectPath, walkFiles, readFile, searchFiles, executeTool, commandTouchesSecretPath, commandEscapesWorkspace, snapshotWorkspace, changedSinceSnapshot, runCommand, isAgentInternalPath } = require('../agent-tools');
 
 function project(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'osin-agent-'));
@@ -15,6 +15,8 @@ function project(t) {
   fs.writeFileSync(path.join(root, '.env'), 'TOKEN=hidden');
   fs.mkdirSync(path.join(root, 'node_modules'));
   fs.writeFileSync(path.join(root, 'node_modules', 'ignored.js'), 'ignored');
+  fs.mkdirSync(path.join(root, '.codex', 'sandbox'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.codex', 'sandbox', 'session.log'), 'internal codex output');
   return root;
 }
 
@@ -31,13 +33,19 @@ test('agent paths are restricted to the selected project, including symlink esca
   }
 });
 
-test('project listing and search skip secrets, symlinks, and dependency folders', t => {
+test('project listing and search skip secrets, symlinks, dependency folders, and Codex internals', t => {
   const root = project(t);
   const files = walkFiles(root);
   assert.deepEqual(files, ['index.js']);
   assert.match(searchFiles(root, 'needle'), /index.js:1/);
   assert.equal(searchFiles(root, 'TOKEN'), 'No matches found.');
   assert.throws(() => readFile(root, '.env'), /secret/i);
+});
+
+test('filters Codex runtime artifacts without hiding ordinary project files', () => {
+  assert.equal(isAgentInternalPath('.codex/sandbox/session.log'), true);
+  assert.equal(isAgentInternalPath('.\\.codex\\tmp\\run.bat'), true);
+  assert.equal(isAgentInternalPath('src/codex.js'), false);
 });
 
 test('write tool requires a session authorization and writes only inside workspace', async t => {

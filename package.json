@@ -29,6 +29,7 @@
     "state.js",
     "config.js",
     "providers.js",
+    "provider-protocol.js",
     "terminal.js",
     "updater.js",
     "sponsors.js",

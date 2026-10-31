@@ -21,7 +21,9 @@ changes are available from this checkout.
 
 OSIN opens a guided provider setup. Choose **OpenAI / ChatGPT account sign-in**
 to open the browser and connect your account, or choose API-key setup for
-OpenAI, OpenRouter, Groq, Together AI, and custom HTTPS endpoints. OSIN bundles
+OpenAI, Anthropic, OpenRouter, Groq, Together AI, and custom HTTPS endpoints.
+Anthropic uses its native Messages API, including tool calling and streaming.
+OSIN bundles
 the OpenAI Codex sign-in/runtime component, so you do not need to install a
 second CLI. API-key setup lists models and tests that the selected model
 supports tool/function calling before saving settings. API credentials are

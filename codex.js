@@ -113,8 +113,36 @@ function parseCodexPlan(text) {
   return { title: 'Implementation plan', tasks: (tasks.length ? tasks : ['Inspect the project', 'Implement the requested changes', 'Run relevant tests']).map(text => ({ text, status: 'pending' })) };
 }
 
+function parseCodexIntent(text) {
+  const raw = String(text).trim().replace(/^```(?:json)?\s*|\s*```$/g, '');
+  let value;
+  try { value = JSON.parse(raw); }
+  catch { throw new Error('Codex could not determine whether this is a chat or coding request. Please try again.'); }
+  if (value?.intent === 'conversation' && typeof value.answer === 'string' && value.answer.trim()) {
+    return { intent: 'conversation', answer: value.answer.trim() };
+  }
+  if (value?.intent === 'coding') return { intent: 'coding', answer: '' };
+  throw new Error('Codex returned an invalid intent response. Please try again.');
+}
+
 async function runCodexCodingTask({ prompt, model, root, authorize, onEvent = () => {}, signal, run = runCodex, loginCheck = checkLogin }) {
   await loginCheck();
+  const intentText = await run(['exec', '--ephemeral', '--sandbox', 'read-only', '--skip-git-repo-check', '--model', model, '-'], {
+    cwd: root,
+    input: [
+      'You are OSIN. Understand the user request before taking action.',
+      'Classify it as "conversation" when it is a greeting, ordinary question, explanation, or request for advice. For conversation, answer naturally and do not plan, inspect files, run commands, or edit anything.',
+      'Classify it as "coding" only when the user clearly asks you to perform or change work in the project.',
+      'Return ONLY valid JSON: {"intent":"conversation","answer":"..."} or {"intent":"coding","answer":""}.',
+      `USER REQUEST:\n${prompt}`,
+    ].join('\n\n'),
+    signal,
+  });
+  const intent = parseCodexIntent(intentText);
+  if (intent.intent === 'conversation') {
+    onEvent({ type: 'complete', plan: null });
+    return { answer: intent.answer, plan: null };
+  }
   if (!await authorize()) throw new Error('Workspace access was not approved for this session.');
   const planText = await run(['exec', '--ephemeral', '--sandbox', 'read-only', '--skip-git-repo-check', '--model', model, '-'], {
     cwd: root,
@@ -207,4 +235,4 @@ function listCodexModels({ spawnProcess = spawn, timeout = 15_000, platform = pr
   });
 }
 
-module.exports = { getCodexLaunch, spawnCodex, isUnsupportedModelError, isUnsupportedCodexModelError, buildCodexPrompt, extractModelNames, runCodex, checkLogin, askCodex, parseCodexPlan, runCodexCodingTask, listCodexModels };
+module.exports = { getCodexLaunch, spawnCodex, isUnsupportedModelError, isUnsupportedCodexModelError, buildCodexPrompt, extractModelNames, runCodex, checkLogin, askCodex, parseCodexPlan, parseCodexIntent, runCodexCodingTask, listCodexModels };

@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const packageInfo = require('../package.json');
-const { listCodexModels, runCodex, parseCodexPlan, runCodexCodingTask } = require('../codex');
+const { listCodexModels, runCodex, parseCodexPlan, parseCodexIntent, runCodexCodingTask } = require('../codex');
 
 test('advertises the installed OSIN version to the Codex app-server', async () => {
   const sent = [];
@@ -105,7 +105,8 @@ test('Codex coding mode plans first, then uses workspace-write only after sessio
     loginCheck: async () => {},
     run: async (args, options) => {
       calls.push({ args, options });
-      if (calls.length === 1) return '1. Inspect\n2. Test';
+      if (calls.length === 1) return '{"intent":"coding","answer":""}';
+      if (calls.length === 2) return '1. Inspect\n2. Test';
       options.onStdout(Buffer.from(`${JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: 'Fixed it.' }})}\n`));
       return 'codex output';
     },
@@ -113,18 +114,42 @@ test('Codex coding mode plans first, then uses workspace-write only after sessio
   });
   assert.deepEqual(parseCodexPlan('1. Inspect\n- Verify'), { title: 'Implementation plan', tasks: [{ text: 'Inspect', status: 'pending' }, { text: 'Verify', status: 'pending' }] });
   assert.ok(calls[0].args.includes('read-only'));
-  assert.ok(calls[1].args.includes('workspace-write'));
-  assert.ok(calls[1].args.includes('never'));
-  assert.equal(calls[1].options.cwd, 'C:/project');
+  assert.ok(calls[1].args.includes('read-only'));
+  assert.ok(calls[2].args.includes('workspace-write'));
+  assert.ok(calls[2].args.includes('never'));
+  assert.equal(calls[2].options.cwd, 'C:/project');
   assert.equal(result.answer, 'Fixed it.');
   assert.ok(events.some(event => event.type === 'plan'));
 });
 
+test('Codex answers greetings before requesting approval or creating a plan', async () => {
+  const calls = [];
+  const events = [];
+  const result = await runCodexCodingTask({
+    prompt: 'hi', model: 'model-x', root: 'C:/project',
+    authorize: async () => { throw new Error('Chat should not request workspace access'); },
+    loginCheck: async () => {},
+    run: async (args, options) => {
+      calls.push({ args, options });
+      assert.ok(args.includes('read-only'));
+      assert.match(options.input, /Classify it as "conversation"/);
+      return '{"intent":"conversation","answer":"Hi! How can I help?"}';
+    },
+    onEvent: event => events.push(event),
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(result.answer, 'Hi! How can I help?');
+  assert.equal(result.plan, null);
+  assert.ok(events.some(event => event.type === 'complete' && event.plan === null));
+  assert.deepEqual(parseCodexIntent('{"intent":"coding","answer":""}'), { intent: 'coding', answer: '' });
+});
+
 test('Codex coding mode makes no agent calls when workspace access is denied', async () => {
-  let invoked = false;
+  const calls = [];
   await assert.rejects(runCodexCodingTask({
     prompt: 'task', model: 'm', root: '.', authorize: async () => false,
-    loginCheck: async () => {}, run: async () => { invoked = true; },
+    loginCheck: async () => {}, run: async (args, options) => { calls.push(args); return '{"intent":"coding","answer":""}'; },
   }), /not approved/);
-  assert.equal(invoked, false);
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].includes('read-only'));
 });

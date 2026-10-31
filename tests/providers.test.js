@@ -23,6 +23,22 @@ test('accepts data and models response shapes and removes duplicate IDs', async 
   assert.deepEqual(result, ['beta', 'gamma']);
 });
 
+test('lists Anthropic models with native API authentication headers', async () => {
+  let request;
+  const result = await listModels({
+    baseUrl: 'https://api.anthropic.com/v1', apiKey: 'anthropic-secret',
+    fetchImpl: async (url, options) => {
+      request = { url, options };
+      return { ok: true, json: async () => ({ data: [{ id: 'claude-sonnet-4' }, { id: 'claude-haiku-4' }] }) };
+    },
+  });
+  assert.deepEqual(result, ['claude-haiku-4', 'claude-sonnet-4']);
+  assert.equal(request.url, 'https://api.anthropic.com/v1/models?limit=1000');
+  assert.equal(request.options.headers['x-api-key'], 'anthropic-secret');
+  assert.equal(request.options.headers['anthropic-version'], '2023-06-01');
+  assert.equal(request.options.headers.Authorization, undefined);
+});
+
 test('reports missing credentials and provider HTTP errors safely', async () => {
   await assert.rejects(listModels({ baseUrl: 'https://example.test/v1', apiKey: '' }), /API key/);
   await assert.rejects(listModels({ baseUrl: 'https://example.test/v1', apiKey: 'k', fetchImpl: async () => ({ ok: false, status: 403, text: async () => 'secret-bearing body' }) }), /HTTP 403/);

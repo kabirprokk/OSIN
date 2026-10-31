@@ -1,5 +1,7 @@
 'use strict';
 
+const { protocolFor } = require('./provider-protocol');
+
 function modelId(model) {
   const id = model?.id || model?.name;
   return typeof id === 'string' ? id.replace(/^models\//, '') : '';
@@ -8,12 +10,15 @@ function modelId(model) {
 async function listModels({ baseUrl, apiKey, fetchImpl = globalThis.fetch }) {
   if (!apiKey) throw new Error('No API key configured. Set OSIN_API_KEY in your OSIN .env file.');
   if (typeof fetchImpl !== 'function') throw new Error('This Node.js runtime does not provide fetch. Use Node.js 18 or newer.');
-  const endpoint = `${String(baseUrl || '').replace(/\/+$/, '')}/models`;
+  const protocol = protocolFor(baseUrl);
+  const endpoint = `${String(baseUrl || '').replace(/\/+$/, '')}/models${protocol === 'anthropic' ? '?limit=1000' : ''}`;
   let response;
   try {
     response = await fetchImpl(endpoint, {
       method: 'GET',
-      headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}` },
+      headers: protocol === 'anthropic'
+        ? { Accept: 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' }
+        : { Accept: 'application/json', Authorization: `Bearer ${apiKey}` },
       signal: AbortSignal.timeout(15000),
     });
   } catch (error) {

@@ -36,7 +36,7 @@ test('workspace picker uses the entered directory and rejects missing paths', as
 });
 
 test('provider wizard includes presets and a custom compatible endpoint', () => {
-  assert.deepEqual(PROVIDERS.map(provider => provider.name), ['OpenAI', 'OpenRouter', 'Groq', 'Together AI', 'Custom OpenAI-compatible provider']);
+  assert.deepEqual(PROVIDERS.map(provider => provider.name), ['OpenAI', 'Anthropic', 'OpenRouter', 'Groq', 'Together AI', 'Custom OpenAI-compatible provider']);
   assert.equal(validateProviderUrl('http://localhost:11434/v1/'), 'http://localhost:11434/v1');
   assert.throws(() => validateProviderUrl('http://api.example.test/v1'), /HTTPS/);
   assert.throws(() => validateProviderUrl('https://user:pass@example.test/v1'), /credentials/);
