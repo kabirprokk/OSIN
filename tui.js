@@ -38,7 +38,9 @@ const DOT = String.fromCharCode(0x25cf);
 const PASTE_START = '\x1b[200~';
 const PASTE_END = '\x1b[201~';
 const colors = {
-  reset: '\x1b[0m', purple: '\x1b[38;2;174;146;218m', muted: '\x1b[38;2;132;134;142m',
+  // Reset only the foreground: SGR 0 would also drop the OSIN background,
+  // leaving differently colored strips after individual UI labels.
+  reset: '\x1b[39m', purple: '\x1b[38;2;174;146;218m', muted: '\x1b[38;2;132;134;142m',
   text: '\x1b[38;2;218;218;222m', cyan: '\x1b[38;2;180;180;186m', green: '\x1b[38;2;180;170;192m',
   bg: '\x1b[48;2;8;8;10m', panel: '\x1b[48;2;14;14;17m', border: '\x1b[38;2;54;54;60m',
 };
@@ -1021,7 +1023,7 @@ function startTui({ model, apiKey, baseUrl, sponsorsFile, metricsFile, openUrl, 
     input.pause();
     output.removeListener('resize', onResize);
     input.setRawMode(false);
-    output.write(`${ESC}?2026l${ESC}?2004l${ESC}?1006l${ESC}?1000l${ESC}?25h${ESC}2J${ESC}H${ESC}?1049l`);
+    output.write(`${ESC}?2026l${ESC}?2004l${ESC}?1006l${ESC}?1000l${ESC}?25h\x1b[0m${ESC}2J${ESC}H${ESC}?1049l`);
     console.log('OSIN closed.');
   }
 

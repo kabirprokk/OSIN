@@ -39,7 +39,9 @@ function fitText(value, maxWidth) {
     output += char;
     used += charWidth;
   }
-  const suffix = prefix ? '\x1b[0m' : '';
+  // Restore only the foreground so fitting colored text doesn't reset a
+  // terminal background established by the caller.
+  const suffix = prefix ? '\x1b[39m' : '';
   return prefix + output + '…' + suffix + ' '.repeat(width - used - 1);
 }
 

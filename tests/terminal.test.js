@@ -15,6 +15,12 @@ test('fits colored and wide text without exceeding the requested cells', () => {
   assert.match(fitted, /…/);
 });
 
+test('fitting colored text restores foreground without resetting caller background', () => {
+  const fitted = fitText('\x1b[35mOSIN coding', 4);
+  assert.match(fitted, /\x1b\[39m$/);
+  assert.doesNotMatch(fitted, /\x1b\[0m$/);
+});
+
 test('wraps long words and paragraphs by terminal-cell width', () => {
   assert.deepEqual(wrapText('界界界 test', 4), ['界界', '界', 'test']);
   assert.deepEqual(wrapText('one\n\ntwo', 10), ['one', '', 'two']);
